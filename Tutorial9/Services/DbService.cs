@@ -1,68 +1,59 @@
-﻿using System.Data;
-using System.Data.Common;
-using Microsoft.Data.SqlClient;
+﻿using Tutorial9.Model;
+using Tutorial9.Repositories;
 
 namespace Tutorial9.Services;
 
 public class DbService : IDbService
 {
     private readonly IConfiguration _configuration;
-    public DbService(IConfiguration configuration)
+    private readonly IWarehouseRepository _warehouseRepository;
+    
+    public DbService(IConfiguration configuration, IWarehouseRepository warehouseRepository)
     {
         _configuration = configuration;
+        _warehouseRepository = warehouseRepository;
     }
     
-    public async Task DoSomethingAsync()
+    public async Task<int> FulfillOrder(OrderFulfillmentDto dto)
     {
-        await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
-        await using SqlCommand command = new SqlCommand();
+        await _warehouseRepository.BeginTransactionAsync();
         
-        command.Connection = connection;
-        await connection.OpenAsync();
-
-        DbTransaction transaction = await connection.BeginTransactionAsync();
-        command.Transaction = transaction as SqlTransaction;
-
-        // BEGIN TRANSACTION
-        try
-        {
-            command.CommandText = "INSERT INTO Animal VALUES (@IdAnimal, @Name);";
-            command.Parameters.AddWithValue("@IdAnimal", 1);
-            command.Parameters.AddWithValue("@Name", "Animal1");
+        // Check if product exists
+        var productExists = await _warehouseRepository.DoesProductExistAsync(dto.IdProduct);
+        if (!productExists)
+            throw new InvalidOperationException("Product does not exist.");
         
-            await command.ExecuteNonQueryAsync();
+        // Check if warehouse exists
+        var warehouseExists = await _warehouseRepository.DoesWarehouseExistAsync(dto.IdWarehouse);
+        if (!warehouseExists)
+            throw new InvalidOperationException("Warehouse does not exist.");
         
-            command.Parameters.Clear();
-            command.CommandText = "INSERT INTO Animal VALUES (@IdAnimal, @Name);";
-            command.Parameters.AddWithValue("@IdAnimal", 2);
-            command.Parameters.AddWithValue("@Name", "Animal2");
+        // Check if amount is greater than 0
+        var amountCorrect = (dto.Amount > 0);
+        if (!amountCorrect)
+            throw new ArgumentOutOfRangeException(nameof(dto.Amount));
         
-            await command.ExecuteNonQueryAsync();
-            
-            await transaction.CommitAsync();
-        }
-        catch (Exception e)
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
-        // END TRANSACTION
-    }
-
-    public async Task ProcedureAsync()
-    {
-        await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
-        await using SqlCommand command = new SqlCommand();
+        // Check if order exists and get its orderId
+        var orderId = await _warehouseRepository.GetOrderIdAsync(dto.IdProduct, dto.Amount);
+        if (orderId == null)
+            throw new InvalidOperationException("Order does not exist.");
         
-        command.Connection = connection;
-        await connection.OpenAsync();
+        // Check if order creation date is before createdAt date
+        var orderCreatedAt = await _warehouseRepository.GetOrderCreationDateAsync((int) orderId);
+        if (orderCreatedAt < dto.CreatedAt)
+            throw new InvalidOperationException("Order creation date is before the provided date.");
         
-        command.CommandText = "NazwaProcedury";
-        command.CommandType = CommandType.StoredProcedure;
+        // Check if order has already been completed
+        var hasOrderBeenCompleted = await _warehouseRepository.HasOrderBeenCompletedAsync((int) orderId);
+        if (hasOrderBeenCompleted)
+            throw new InvalidOperationException("Order has already been completed.");
         
-        command.Parameters.AddWithValue("@Id", 2);
+        // Try to fulfill order and check if it succeeded
+        var recordId = await _warehouseRepository.FulfillOrderAsync((int) orderId, DateTime.Now);
+        if (recordId == null)
+            throw new Exception("Failed to fulfill order.");
         
-        await command.ExecuteNonQueryAsync();
-        
+        await _warehouseRepository.CommitTransactionAsync();
+        return (int) recordId;
     }
 }
