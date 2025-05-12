@@ -4,6 +4,10 @@ namespace Tutorial9.Repositories;
 
 public interface IWarehouseRepository
 {
+    Task BeginTransactionAsync();
+    Task CommitTransactionAsync();
+    Task RollbackTransactionAsync();
+    
     Task<bool> DoesProductExistAsync(int productId);
     Task<bool> DoesWarehouseExistAsync(int warehouseId);
     Task<bool> HasOrderBeenCompletedAsync(int idOrder);
@@ -12,10 +16,5 @@ public interface IWarehouseRepository
     Task<DateTime> GetOrderCreationDateAsync(int idOrder);
     
     Task UpdateOrderFulfillmentDateAsync(int idOrder, DateTime fulfillmentDate);
-    Task<int> InsertRecordIntoProduct_WarehouseAsync(int idOrder, DateTime createdAt);
-    Task<int?> FulfillOrderAsync(int orderIdResult, DateTime now);
-    
-    
-    Task BeginTransactionAsync();
-    Task CommitTransactionAsync();
+    Task<int?> InsertRecordIntoProduct_WarehouseAsync(int idOrder, int productId, int warehouseId, int amount, DateTime createdAt);
 }

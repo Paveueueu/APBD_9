@@ -67,11 +67,10 @@ app.UseExceptionHandler(errorApp =>
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = exception switch
         {
-            ArgumentNullException => StatusCodes.Status400BadRequest,
-            ArgumentOutOfRangeException => StatusCodes.Status400BadRequest,
+            ArgumentException => StatusCodes.Status400BadRequest,
             KeyNotFoundException => StatusCodes.Status404NotFound,
-            UnauthorizedAccessException => StatusCodes.Status403Forbidden,
-
+            InvalidOperationException => StatusCodes.Status409Conflict,
+            
             _ => StatusCodes.Status500InternalServerError
         };
 
