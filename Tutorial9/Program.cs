@@ -48,7 +48,7 @@ app.UseSwagger();
 
 app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "RiderProjects");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Warehouse API");
         c.DocExpansion(DocExpansion.List);
         c.DefaultModelExpandDepth(0);
         c.DisplayRequestDuration();
